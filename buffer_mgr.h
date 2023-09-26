@@ -3,6 +3,7 @@
 
 // Include return codes and methods for logging errors
 #include "dberror.h"
+#include "storage_mgr.h"
 
 // Include bool DT
 #include "dt.h"
@@ -19,6 +20,7 @@ typedef enum ReplacementStrategy {
 // Data Types and Structures
 typedef int PageNumber;
 #define NO_PAGE -1
+#define MAX_BUFFER_SIZE 0
 
 typedef struct BM_BufferPool {
 	char *pageFile;
@@ -32,6 +34,14 @@ typedef struct BM_PageHandle {
 	PageNumber pageNum;
 	char *data;
 } BM_PageHandle;
+
+// Reference to store value for the frame
+typedef struct Frame{
+	int dirtyCount;
+	int fixCount;
+	BM_PageHandle bm_PageHandle;
+	SM_PageHandle smp;
+} Frame;
 
 // convenience macros
 #define MAKE_POOL()					\
