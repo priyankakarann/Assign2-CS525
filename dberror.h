@@ -1,8 +1,6 @@
 #ifndef DBERROR_H
 #define DBERROR_H
 
-#include "stdio.h"
-
 /* module wide constants */
 #define PAGE_SIZE 4096
 
@@ -15,6 +13,7 @@ typedef int RC;
 #define RC_WRITE_FAILED 3
 #define RC_READ_NON_EXISTING_PAGE 4
 #define RC_BUFFER_NOT_INIT 5
+#define RC_PINNED_PAGES 6
 
 #define RC_RM_COMPARE_VALUE_OF_DIFFERENT_DATATYPE 200
 #define RC_RM_EXPR_RESULT_IS_NOT_BOOLEAN 201
@@ -25,7 +24,7 @@ typedef int RC;
 
 #define RC_IM_KEY_NOT_FOUND 300
 #define RC_IM_KEY_ALREADY_EXISTS 301
-#define RC_IM_N_TO_LAGE 302
+#define RC_IM_N_TO_LARGE 302
 #define RC_IM_NO_MORE_ENTRIES 303
 
 /* holder for error messages */
