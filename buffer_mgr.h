@@ -39,6 +39,7 @@ typedef struct BM_PageHandle {
 typedef struct Frame{
 	int dirtyCount;
 	int fixCount;
+	bool referenceBit;
 	BM_PageHandle bm_PageHandle;
 	SM_PageHandle smp;
 } Frame;
