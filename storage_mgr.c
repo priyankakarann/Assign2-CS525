@@ -40,13 +40,13 @@ remove
 //     return 0;
 // }
 
-void initStorageManager(void)
+extern void initStorageManager(void)
 {
     file = NULL;
     printf("THE STORAGE MANAGER IS INITIALIZED SUCCESSFULLY\n");
 }
 
-RC createPageFile(char *fileName)
+extern RC createPageFile(char *fileName)
 {
     // check to open file if not exists:
     // malloc to allocate memory
@@ -55,23 +55,18 @@ RC createPageFile(char *fileName)
 
     RC return_code = RC_OK;
 
-    file = fopen(fileName, "r+");
-
-    // Check whether this file already exists if yes return the same
-    if (file != NULL)
+    file = fopen(fileName, "w+");
+    if (file == NULL)
     {
-        RC_message = "FILE ALREADY EXISTS!";
-        printError(*RC_message);
-        return return_code;
+        return RC_FILE_NOT_FOUND;
     }
     else
     {
-        file = fopen(fileName, "w+");
         size_t num_blocks = PAGE_SIZE;
         size_t block_size = sizeof(char);
 
         // Initializing a buffer that forms a memory block for setting the file
-        SM_PageHandle *smp = (SM_PageHandle *)calloc(num_blocks, block_size);
+        SM_PageHandle smp = (SM_PageHandle)calloc(num_blocks, block_size);
 
         // If the buffer fails to be created then return an error of it not initialized
         if (smp == NULL)
@@ -85,22 +80,22 @@ RC createPageFile(char *fileName)
 
         memset(smp, '\0', PAGE_SIZE);
         printf("THE FILE IS CREATED SUCCESSFULLY\n");
-        fseek(file, 0 * PAGE_SIZE, SEEK_SET);
-        
+        // fseek(file, 0 * PAGE_SIZE, SEEK_SET);
+
         // Checking whether write is possible to the file and whether fwrite returning the same number of pages
-        if ((fwrite(smp, sizeof(char), num_blocks, file) == num_blocks))
-        {
-            RC_message = "WRITE TO THE FILE WAS POSSIBLE!\n";
-            printf("%s", RC_message);
-            return_code = RC_OK;
-            return return_code;
-        }
-        else
+        if ((fwrite(smp, sizeof(char), num_blocks, file) < num_blocks))
         {
             RC_message = "WRITE TO THE FILE WAS NOT POSSIBLE!";
             printError(*RC_message);
             return_code = RC_WRITE_FAILED;
 
+            return return_code;
+        }
+        else
+        {   
+            RC_message = "WRITE TO THE FILE WAS POSSIBLE!\n";
+            printf("%s", RC_message);
+            return_code = RC_OK;
             return return_code;
         }
 
@@ -111,48 +106,45 @@ RC createPageFile(char *fileName)
     }
 }
 
-RC openPageFile(char *fileName, SM_FileHandle *fHandle)
+extern RC openPageFile(char *fileName, SM_FileHandle *fHandle)
 {
     RC return_code = RC_OK;
-    file = fopen(fileName, "rb+");
+    file = fopen(fileName, "r");
 
     if (file == NULL)
     {
         return_code = RC_FILE_NOT_FOUND;
         RC_message = "FILE DOES NOT EXISTS!";
         printError(*RC_message);
-        return return_code;
     }
-    else
+
+    if (fHandle == NULL)
     {
-        if (fHandle == NULL)
-        {
-            return_code = RC_FILE_HANDLE_NOT_INIT;
-            RC_message = "FILE HANDLE NOT INITIALIZED!";
-            printError(*RC_message);
-            return return_code;
-        }
-
-        // INITIALIZE ALL THE FILE PARAMETERS TO THE SM_FILEHANDLE
-        fHandle->fileName = fileName;
-        fHandle->curPagePos = 0;
-
-        // TO CALCULATE THE TOTAL NUMBER OF PAGES BY GETTING AT THE END OF THE FILE
-        fseek(file, 0, SEEK_END);
-        size_t totalNums = ftell(file) / PAGE_SIZE;
-
-        fHandle->totalNumPages = totalNums;
-        fHandle->mgmtInfo = file;
-
-        // TO RESET THE POINTER AT THE START OF THE FILE
-        rewind(file);
-        // fclose(file);
-
+        return_code = RC_FILE_HANDLE_NOT_INIT;
+        RC_message = "FILE HANDLE NOT INITIALIZED!";
+        printError(*RC_message);
         return return_code;
     }
+
+    // INITIALIZE ALL THE FILE PARAMETERS TO THE SM_FILEHANDLE
+    fHandle->fileName = fileName;
+    fHandle->curPagePos = 0;
+
+    // TO CALCULATE THE TOTAL NUMBER OF PAGES BY GETTING AT THE END OF THE FILE
+    fseek(file, 0, SEEK_END);
+    size_t totalNums = ftell(file) / PAGE_SIZE;
+
+    fHandle->totalNumPages = totalNums;
+    fHandle->mgmtInfo = file;
+
+    // TO RESET THE POINTER AT THE START OF THE FILE
+    rewind(file);
+    // fclose(file);
+
+    return return_code;
 }
 
-RC closePageFile(SM_FileHandle *fHandle)
+extern RC closePageFile(SM_FileHandle *fHandle)
 {
     RC return_code = RC_OK;
     file = fHandle->mgmtInfo;
@@ -173,21 +165,22 @@ RC closePageFile(SM_FileHandle *fHandle)
         return_code = RC_OK;
     }
     else
-    { 
+    {
         RC_message = "PROBLEM OCCURRED WHILE CLOSING THE FILE";
         printError(*RC_message);
         return_code = RC_FILE_NOT_FOUND;
     }
-
+    file = NULL;
     return return_code;
 }
 
-RC destroyPageFile(char *fileName)
+extern RC destroyPageFile(char *fileName)
 {
     RC return_code;
 
     // First closing the file and then removing the file
-    if (file != NULL){
+    if (file != NULL)
+    {
         fclose(file);
         file = NULL;
     }
@@ -213,11 +206,10 @@ RC destroyPageFile(char *fileName)
 
 /* Reading functions to read from the block */
 
-RC readBlock(int pageNum, SM_FileHandle *fHandle, SM_PageHandle memPage)
+extern RC readBlock(int pageNum, SM_FileHandle *fHandle, SM_PageHandle memPage)
 {
     RC return_code = RC_OK;
-    file = fHandle->mgmtInfo;
-    file = fopen(fileName, "r+");
+    file = fopen(fHandle->fileName, "r");
     if (file == NULL)
     {
         return_code = RC_FILE_NOT_FOUND;
@@ -233,7 +225,7 @@ RC readBlock(int pageNum, SM_FileHandle *fHandle, SM_PageHandle memPage)
         if (seek == 0)
         {
             size_t size = sizeof(char);
-            size_t count = PAGE_SIZE / size;
+            size_t count = PAGE_SIZE;
             size_t elements_read = fread(memPage, size, count, file);
 
             printf("SIZE: %zu\n", size);
@@ -250,7 +242,10 @@ RC readBlock(int pageNum, SM_FileHandle *fHandle, SM_PageHandle memPage)
                 return_code = RC_READ_NON_EXISTING_PAGE;
 
                 return return_code;
-            } else{
+            }
+            else
+            {
+                fHandle->curPagePos = ftell(file);
                 return RC_OK;
             }
         }
@@ -265,7 +260,7 @@ RC readBlock(int pageNum, SM_FileHandle *fHandle, SM_PageHandle memPage)
     }
 }
 
-int getBlockPos(SM_FileHandle *fHandle)
+extern int getBlockPos(SM_FileHandle *fHandle)
 {
     RC block_pos;
     RC return_code = RC_OK;
@@ -286,7 +281,7 @@ int getBlockPos(SM_FileHandle *fHandle)
     return block_pos;
 }
 
-RC readFirstBlock(SM_FileHandle *fHandle, SM_PageHandle memPage)
+extern RC readFirstBlock(SM_FileHandle *fHandle, SM_PageHandle memPage)
 {
     RC return_code = RC_OK;
     int pos = 0;
@@ -297,7 +292,7 @@ RC readFirstBlock(SM_FileHandle *fHandle, SM_PageHandle memPage)
     return return_code;
 }
 
-RC readPreviousBlock(SM_FileHandle *fHandle, SM_PageHandle memPage)
+extern RC readPreviousBlock(SM_FileHandle *fHandle, SM_PageHandle memPage)
 {
     RC return_code = RC_OK;
     int pos = fHandle->curPagePos - 1;
@@ -318,7 +313,7 @@ RC readPreviousBlock(SM_FileHandle *fHandle, SM_PageHandle memPage)
     return return_code;
 }
 
-RC readCurrentBlock(SM_FileHandle *fHandle, SM_PageHandle memPage)
+extern RC readCurrentBlock(SM_FileHandle *fHandle, SM_PageHandle memPage)
 {
     RC return_code = RC_OK;
     int pos = fHandle->curPagePos;
@@ -329,7 +324,7 @@ RC readCurrentBlock(SM_FileHandle *fHandle, SM_PageHandle memPage)
     return return_code;
 }
 
-RC readNextBlock(SM_FileHandle *fHandle, SM_PageHandle memPage)
+extern RC readNextBlock(SM_FileHandle *fHandle, SM_PageHandle memPage)
 {
     RC return_code = RC_OK;
     int pos = fHandle->curPagePos + 1;
@@ -350,7 +345,7 @@ RC readNextBlock(SM_FileHandle *fHandle, SM_PageHandle memPage)
     return return_code;
 }
 
-RC readLastBlock(SM_FileHandle *fHandle, SM_PageHandle memPage)
+extern RC readLastBlock(SM_FileHandle *fHandle, SM_PageHandle memPage)
 {
     RC return_code = RC_OK;
     int pos = fHandle->totalNumPages - 1;
@@ -363,10 +358,10 @@ RC readLastBlock(SM_FileHandle *fHandle, SM_PageHandle memPage)
 
 /* Writing functions to read from the block */
 
-RC writeBlock(int pageNum, SM_FileHandle *fHandle, SM_PageHandle memPage)
+extern RC writeBlock(int pageNum, SM_FileHandle *fHandle, SM_PageHandle memPage)
 {
     RC return_code = RC_OK;
-    file = fHandle->mgmtInfo;
+    file = fopen(fHandle->fileName, "r+");
 
     if (fHandle == NULL)
     {
@@ -377,7 +372,6 @@ RC writeBlock(int pageNum, SM_FileHandle *fHandle, SM_PageHandle memPage)
     // Check whether the given pageNum is greater than 0 and less than the total number of pages
     if (pageNum >= 0 && pageNum < fHandle->totalNumPages)
     {
-        file = fopen(fileName, "w+");
         if (file == NULL)
         {
             return_code = RC_FILE_NOT_FOUND;
@@ -390,7 +384,7 @@ RC writeBlock(int pageNum, SM_FileHandle *fHandle, SM_PageHandle memPage)
             if (isSeek == 0)
             {
                 size_t size = sizeof(char);
-                size_t count = PAGE_SIZE / size;
+                size_t count = PAGE_SIZE;
 
                 fwrite(memPage, size, count, file);
 
@@ -418,8 +412,7 @@ RC writeBlock(int pageNum, SM_FileHandle *fHandle, SM_PageHandle memPage)
     return return_code;
 }
 
-
-RC writeCurrentBlock(SM_FileHandle *fHandle, SM_PageHandle memPage)
+extern RC writeCurrentBlock(SM_FileHandle *fHandle, SM_PageHandle memPage)
 {
     int current_block_pos = getBlockPos(fHandle);
     RC return_code = RC_OK;
@@ -439,12 +432,11 @@ RC writeCurrentBlock(SM_FileHandle *fHandle, SM_PageHandle memPage)
     }
 }
 
-RC appendEmptyBlock(SM_FileHandle *fHandle)
+extern RC appendEmptyBlock(SM_FileHandle *fHandle)
 {
     RC return_code = RC_OK;
     file = fHandle->mgmtInfo;
 
-    file = fopen(fileName, "w+");
     if (file == NULL)
     {
         return_code = RC_FILE_NOT_FOUND;
@@ -502,27 +494,34 @@ RC appendEmptyBlock(SM_FileHandle *fHandle)
 }
 
 /* Function to ensure that a page file has enough pages */
-RC ensureCapacity(int numberOfPages, SM_FileHandle *fHandle)
+extern RC ensureCapacity(int numberOfPages, SM_FileHandle *fHandle)
 {
     RC return_code = RC_OK;
-    if (fHandle == NULL){
+    if (fHandle == NULL)
+    {
         return_code = RC_FILE_HANDLE_NOT_INIT;
         RC_message = "FILE HANDLE NOT INITIALIZED!";
         printError(*RC_message);
 
         return return_code;
-    } else{
+    }
+    else
+    {
         // Getting the totalNumPages to check whether the numberOfPages does not exceed the totalNumPages in the file
         size_t totalNumPages = fHandle->totalNumPages;
-        if (totalNumPages < numberOfPages){
-            // Add an extra empty block to the memory till the size of the file 
+        if (totalNumPages < numberOfPages)
+        {
+            // Add an extra empty block to the memory till the size of the file
             while (totalNumPages < numberOfPages)
             {
                 appendEmptyBlock(fHandle);
             }
-        } else{
+        }
+        else
+        {
             return_code = RC_WRITE_FAILED;
-            RC_message = "WRITE TO THE FILE WAS NOT POSSIBLE!";;
+            RC_message = "WRITE TO THE FILE WAS NOT POSSIBLE!";
+            ;
             printError(*RC_message);
 
             return return_code;
