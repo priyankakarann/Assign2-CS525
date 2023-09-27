@@ -2,10 +2,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+#include <math.h>
 
 #include "buffer_mgr.h"
-#include "replacement_mgr_strat.h"
+// #include "replacement_mgr_strat.h"
 #include "storage_mgr.h"
+#include "buffer_mgr_stat.h"
 
 /*
 Task is to maintain an array which is called as Buffer Pool to contain the pages as a cache in the buffer pool
@@ -13,10 +15,10 @@ which is fetched from the disk and stored in the memory
 Page Table: Is a hashmap which keeps track of pages that currently in the memory
 */
 
-// int main()
+//  int main()
 // {
 //     return 0;
-// }
+//  }
 
 // Returns the page file by the position of the page file
 // A buffer pool consists of a fixed number of pages called as frames to store the pages from the disk
@@ -42,6 +44,44 @@ int rearIndex = 0;
 int hit = 0;
 int clockPointer = 0;
 
+
+void FIFO(BM_BufferPool *const bm, Frame *page)
+{
+	Frame *frame = (Frame *) bm->mgmtData;
+	
+	int frontIndex = rearIndex % maxBufferSize;
+
+	for(int i = 0; i < maxBufferSize; i++)
+	{
+		if(frame[frontIndex].fixCount == 0)
+		{
+			if(frame[frontIndex].dirtyCount == 1)
+			{
+				SM_FileHandle fHandle;
+				openPageFile(bm->pageFile, &fHandle);
+				writeBlock((frame[frontIndex].bm_PageHandle).pageNum, &fHandle, frame[frontIndex].smp);
+				
+				noOfPagesWrite++;
+			}
+			
+			frame[frontIndex].smp = page->smp;
+			(frame[frontIndex].bm_PageHandle).pageNum = (page->bm_PageHandle).pageNum;
+			frame[frontIndex].dirtyCount = page->dirtyCount;
+			frame[frontIndex].fixCount = page->fixCount;
+			break;
+		}
+		else
+		{
+			frontIndex += 1;
+            if (frontIndex % maxBufferSize == 0){
+                frontIndex = 0;
+            }
+		}
+	}
+}
+
+
+
 // Buffer Manager Interface Pool Handling
 RC initBufferPool(BM_BufferPool *const bm, const char *const pageFileName,
                   const int numPages, ReplacementStrategy strategy,
@@ -65,7 +105,7 @@ RC initBufferPool(BM_BufferPool *const bm, const char *const pageFileName,
 
     maxBufferSize = numPages;
 
-    Frame *frame = (Frame *)malloc(sizeof(Frame));
+    Frame *frame = (Frame *)malloc(sizeof(Frame) * numPages);
 
     if (frame == NULL)
     {
@@ -80,10 +120,12 @@ RC initBufferPool(BM_BufferPool *const bm, const char *const pageFileName,
     {
         frame[i].dirtyCount = 0;
         frame[i].fixCount = 0;
+        (frame[i].bm_PageHandle).pageNum = 0;
+        frame[i].smp = NULL;
     }
 
     bm->mgmtData = frame;
-
+    printf("BUFFER WAS INITIALIZED SUCCESSFULLY");
     return return_code;
 };
 
@@ -100,12 +142,12 @@ RC shutdownBufferPool(BM_BufferPool *const bm)
     {
         if (frame[i].fixCount != 0)
         {
-            return RC_PINNED_PAGES;
+            return RC_PINNED_PAGES_ERROR;
         }
     }
 
     free(frame);
-    bm->mgmtData = NULL;
+    // free(bm);
 
     return return_code;
 };
@@ -120,10 +162,11 @@ RC forceFlushPool(BM_BufferPool *const bm)
     {
         if (frame[i].fixCount == 0 && frame[i].dirtyCount == 1)
         {
-            SM_FileHandle *fHandle;
+            SM_FileHandle fHandle;
 
-            openPageFile(bm->pageFile, fHandle);
-            writeBlock((frame[i].bm_PageHandle).pageNum, fHandle, frame[i].smp);
+            openPageFile(bm->pageFile, &fHandle);
+            //!Edge Case
+            writeBlock((frame[i].bm_PageHandle).pageNum, &fHandle, frame[i].smp);
 
             frame[i].dirtyCount = 0;
 
@@ -146,6 +189,7 @@ RC markDirty(BM_BufferPool *const bm, BM_PageHandle *const page)
         if ((frame[i].bm_PageHandle).pageNum == page->pageNum)
         {
             frame[i].dirtyCount = 1;
+            break;
         }
     }
 
@@ -167,6 +211,7 @@ RC unpinPage(BM_BufferPool *const bm, BM_PageHandle *const page)
         if ((frame[i].bm_PageHandle).pageNum == page->pageNum)
         {
             frame[i].fixCount -= 1;
+            break;
         }
     }
 
@@ -182,9 +227,9 @@ RC forcePage(BM_BufferPool *const bm, BM_PageHandle *const page)
     {
         if ((frame[i].bm_PageHandle).pageNum == page->pageNum)
         {
-            SM_FileHandle *fHandle;
-            openPageFile(bm->pageFile, fHandle);
-            int didWrite = writeBlock((frame[i].bm_PageHandle).pageNum, fHandle, frame[i].smp);
+            SM_FileHandle fHandle;
+            openPageFile(bm->pageFile, &fHandle);
+            int didWrite = writeBlock((frame[i].bm_PageHandle).pageNum, &fHandle, frame[i].smp);
 
             if (didWrite != 0)
             {
@@ -202,81 +247,117 @@ RC forcePage(BM_BufferPool *const bm, BM_PageHandle *const page)
 // This function will helps to request pages identified by their position in the
 //(page number) to be loaded in a page frame
 //  Increases the pin count by 1
-RC pinPage(BM_BufferPool *const bm, BM_PageHandle *const page,
-           const PageNumber pageNum)
+
+RC pinPage(BM_BufferPool *const bm, BM_PageHandle *const page, const PageNumber pageNum)
 {
-    Frame *pageFrame = (Frame *)bm->mgmtData;
-	
-	// Checking if buffer pool is empty and this is the first page to be pinned
-	if(pageFrame[0].bm_PageHandle.pageNum == -1)
-	{
-		// Reading page from disk and initializing page frame's content in the buffer pool
-		SM_FileHandle *fHandle;
-		openPageFile(bm->pageFile, fHandle);
-		pageFrame[0].smp = (SM_PageHandle) calloc(maxBufferSize, sizeof(char));
-		ensureCapacity(pageNum, fHandle);
-		readBlock(pageNum, fHandle, pageFrame[0].smp);
-		pageFrame[0].bm_PageHandle.pageNum = pageNum;
-		pageFrame[0].fixCount++;
-		rearIndex = 0;
-		page->pageNum = pageNum;
-		page->data = pageFrame[0].smp;
-		
-		return RC_OK;		
-	}
-	else
-	{	
-		int i;
-		bool isBufferFull = true;
-		
-		for(i = 0; i < maxBufferSize; i++)
-		{
-			if(pageFrame[i].bm_PageHandle.pageNum != -1)
-			{	
-				// Checking if page is in memory
-				if(pageFrame[i].bm_PageHandle.pageNum == pageNum)
-				{
-					// Increasing fixCount i.e. now there is one more client accessing this page
-					pageFrame[i].fixCount++;
-					isBufferFull = false;
-					hit++; // Incrementing hit (hit is used by LRU algorithm to determine the least recently used page)
+    Frame *frame = (Frame *)bm->mgmtData;
+    // printPoolContent(bm);
+    // Checking if buffer pool is empty and this is the first page to be pinned
+    if ((frame[0].bm_PageHandle).pageNum == NO_PAGE) // Use NO_PAGE constant for uninitialized values
+    {
+        SM_FileHandle fHandle; // Declare the file handle
+        RC return_code = RC_OK; // Declare a return code variable
 
-					page->pageNum = pageNum;
-					page->data = pageFrame[i].smp;
-
-					clockPointer++;
-					break;
-				}				
-			} else {
-				SM_FileHandle *fHandle;
-				openPageFile(bm->pageFile, fHandle);
-				pageFrame[i].smp = (SM_PageHandle) calloc(maxBufferSize, sizeof(char));
-				readBlock(pageNum, fHandle, pageFrame[i].smp);
-				pageFrame[i].bm_PageHandle.pageNum = pageNum;
-				pageFrame[i].fixCount = 1;
-				rearIndex++;	
-				hit++; // Incrementing hit (hit is used by LRU algorithm to determine the least recently used page)
-
-				page->pageNum = pageNum;
-				page->data = pageFrame[i].smp;
-				
-				isBufferFull = false;
-				break;
-			}
+        // Open the page file and handle potential errors
+        if(openPageFile(bm->pageFile, &fHandle) != RC_OK){
+			printf("AKFJSKLAJSFKLJASKD");
 		}
-		
-		// If isBufferFull = true, then it means that the buffer is full and we must replace an existing page using page replacement strategy
-		if(isBufferFull == true)
-		{
-			// Create a new page to store data read from the file.
-			Frame *newPage = (Frame *) calloc(maxBufferSize, sizeof(Frame));		
+        // Allocate memory for the new page
+        frame[0].smp = (SM_PageHandle)malloc(PAGE_SIZE);
+        // ensureCapacity(pageNum, &fHandle);
+        // Ensure the page exists in the file
+        if (pageNum >= fHandle.totalNumPages)
+        {
+            return RC_IM_KEY_NOT_FOUND;
+        }
+
+        // Read the page into memory
+        if(readBlock(pageNum, &fHandle, frame[0].smp) != RC_OK){
+			printf("mnbmnbmnbnmmnmn");
+		}
+        // Initialize page frame properties
+        (frame[0].bm_PageHandle).pageNum = pageNum;
+        frame[0].fixCount += 1;
+        rearIndex = 0;
+        page->pageNum = pageNum;
+        page->data = frame[0].smp;
+        
+        return RC_OK;
+    }
+    else
+    {
+        bool isBufferFull = true;
+
+        for (int i = 0; i < maxBufferSize; i++)
+        {
+            if ((frame[i].bm_PageHandle).pageNum != NO_PAGE)
+            {
+                // Checking if page is in memory
+                if ((frame[i].bm_PageHandle).pageNum == pageNum)
+                {
+                    // Increasing fixCount i.e., now there is one more client accessing this page
+                    frame[i].fixCount += 1;
+                    isBufferFull = false;
+                    hit++; // Incrementing hit (hit is used by LRU algorithm to determine the least recently used page)
+
+                    page->pageNum = pageNum;
+                    page->data = frame[i].smp;
+
+                    clockPointer++;
+                    break;
+                }
+            }
+            else
+            {
+                SM_FileHandle fHandle;
+                RC return_code = RC_OK;
+
+                // Open the page file and handle potential errors
+                if(openPageFile(bm->pageFile, &fHandle) != RC_OK){
+					printf("XBNMZCBZMNXBCMNZXCMN");
+				}
+
+                // Allocate memory for the new page
+                frame[i].smp = (SM_PageHandle)malloc(PAGE_SIZE);
+
+                // Ensure the page exists in the file
+                if (pageNum >= fHandle.totalNumPages)
+                {
+                    return RC_IM_KEY_NOT_FOUND;
+                }
+
+                // Read the page into memory
+                if(readBlock(pageNum, &fHandle, frame[i].smp) != RC_OK){
+					printf("NMXBCZMNBXCNMZBNMXCBMNZXBCNMX");
+				}
+
+                // Initialize page frame properties
+                (frame[i].bm_PageHandle).pageNum = pageNum;
+                frame[i].fixCount = 1;
+                rearIndex++;
+                hit++; // Incrementing hit (hit is used by LRU algorithm to determine the least recently used page)
+
+                page->pageNum = pageNum;
+                page->data = frame[i].smp;
+
+                isBufferFull = false;
+                break;
+            }
+        }
+
+        // If isBufferFull = true, then it means that the buffer is full and we must replace an existing page using the page replacement strategy
+        if (isBufferFull)
+        {
+            Frame *newPage = (Frame *) malloc(sizeof(Frame));		
 			
 			// Reading page from disk and initializing page frame's content in the buffer pool
-			SM_FileHandle fh;
-			openPageFile(bm->pageFile, &fh);
-			newPage->smp = (SM_PageHandle) calloc(maxBufferSize, sizeof(char));
-			readBlock(pageNum, &fh, newPage->smp);
-			newPage->bm_PageHandle.pageNum = pageNum;
+			SM_FileHandle fHandle;
+			openPageFile(bm->pageFile, &fHandle);
+			newPage->smp = (SM_PageHandle) malloc(PAGE_SIZE);
+			if (readBlock(pageNum, &fHandle, newPage->smp) != RC_OK){
+                return RC_READ_NON_EXISTING_PAGE;
+            };
+			(newPage->bm_PageHandle).pageNum = pageNum;
 			newPage->dirtyCount = 0;		
 			newPage->fixCount = 1;
 			rearIndex++;
@@ -289,25 +370,123 @@ RC pinPage(BM_BufferPool *const bm, BM_PageHandle *const page,
 			switch(bm->strategy)
 			{			
 				case RS_FIFO: // Using FIFO algorithm
-					FIFO(bm, newPage, rearIndex, maxBufferSize, noOfPagesWrite);
+					FIFO(bm, newPage);
 					break;
-				
 				default:
 					printf("\nAlgorithm Not Implemented\n");
 					break;
 			}
+        }
+    }
+
+    return RC_OK;
+}
+
+// RC pinPage(BM_BufferPool *const bm, BM_PageHandle *const page,
+//            const PageNumber pageNum)
+// {
+//     Frame *pageFrame = (Frame *)bm->mgmtData;
+	
+// 	// Checking if buffer pool is empty and this is the first page to be pinned
+// 	if(pageFrame[0].bm_PageHandle.pageNum == -1)
+// 	{
+// 		// Reading page from disk and initializing page frame's content in the buffer pool
+// 		SM_FileHandle *fHandle;
+// 		openPageFile(bm->pageFile, fHandle);
+// 		pageFrame[0].smp = (SM_PageHandle) calloc(maxBufferSize, sizeof(char));
+// 		// ensureCapacity(pageNum, fHandle);
+// 		readBlock(pageNum, fHandle, pageFrame[0].smp);
+// 		pageFrame[0].bm_PageHandle.pageNum = pageNum;
+// 		pageFrame[0].fixCount++;
+// 		rearIndex = 0;
+// 		page->pageNum = pageNum;
+// 		page->data = pageFrame[0].smp;
+		
+// 		return RC_OK;		
+// 	}
+// 	else
+// 	{
+// 		bool isBufferFull = true;
+        
+// 		for(int i = 0; i < maxBufferSize; i++)
+// 		{
+// 			if(pageFrame[i].bm_PageHandle.pageNum != -1)
+// 			{	
+// 				// Checking if page is in memory
+// 				if(pageFrame[i].bm_PageHandle.pageNum == pageNum)
+// 				{
+// 					// Increasing fixCount i.e. now there is one more client accessing this page
+// 					pageFrame[i].fixCount++;
+// 					isBufferFull = false;
+// 					hit++; // Incrementing hit (hit is used by LRU algorithm to determine the least recently used page)
+
+// 					page->pageNum = pageNum;
+// 					page->data = pageFrame[i].smp;
+
+// 					clockPointer++;
+// 					break;
+// 				}				
+// 			} else {
+// 				SM_FileHandle *fHandle;
+// 				openPageFile(bm->pageFile, fHandle);
+// 				pageFrame[i].smp = (SM_PageHandle) calloc(maxBufferSize, sizeof(char));
+// 				readBlock(pageNum, fHandle, pageFrame[i].smp);
+// 				pageFrame[i].bm_PageHandle.pageNum = pageNum;
+// 				pageFrame[i].fixCount = 1;
+// 				rearIndex++;	
+// 				hit++; // Incrementing hit (hit is used by LRU algorithm to determine the least recently used page)
+
+// 				page->pageNum = pageNum;
+// 				page->data = pageFrame[i].smp;
+				
+// 				isBufferFull = false;
+// 				break;
+// 			}
+// 		}
+		
+// 		// If isBufferFull = true, then it means that the buffer is full and we must replace an existing page using page replacement strategy
+// 		if(isBufferFull == true)
+// 		{
+// 			// Create a new page to store data read from the file.
+// 			Frame *newPage = (Frame *) calloc(maxBufferSize, sizeof(Frame));		
+			
+// 			// Reading page from disk and initializing page frame's content in the buffer pool
+// 			SM_FileHandle fh;
+// 			openPageFile(bm->pageFile, &fh);
+// 			newPage->smp = (SM_PageHandle) calloc(maxBufferSize, sizeof(char));
+// 			readBlock(pageNum, &fh, newPage->smp);
+// 			newPage->bm_PageHandle.pageNum = pageNum;
+// 			newPage->dirtyCount = 0;		
+// 			newPage->fixCount = 1;
+// 			rearIndex++;
+// 			hit++;
+
+// 			page->pageNum = pageNum;
+// 			page->data = newPage->smp;			
+
+// 			// Call appropriate algorithm's function depending on the page replacement strategy selected (passed through parameters)
+// 			switch(bm->strategy)
+// 			{			
+// 				case RS_FIFO: // Using FIFO algorithm
+// 					FIFO(bm, newPage, rearIndex, maxBufferSize, noOfPagesWrite);
+// 					break;
+				
+// 				default:
+// 					printf("\nAlgorithm Not Implemented\n");
+// 					break;
+// 			}
 						
-		}		
-		return RC_OK;
-	}	
-};
+// 		}		
+// 		return RC_OK;
+// 	}	
+// };
 
 // Statistics Interface
 
 PageNumber *getFrameContents(BM_BufferPool *const bm)
 {
     RC return_code = RC_OK;
-    PageNumber *frameContents = (PageNumber *)calloc(maxBufferSize, sizeof(PageNumber));
+    PageNumber *frameContents = (PageNumber *)malloc(maxBufferSize * sizeof(PageNumber));
 
     if (frameContents == NULL)
     {
@@ -339,7 +518,7 @@ PageNumber *getFrameContents(BM_BufferPool *const bm)
 bool *getDirtyFlags(BM_BufferPool *const bm)
 {
     RC return_code = RC_OK;
-    bool *dirtyFlagCounts = (bool *)calloc(maxBufferSize, sizeof(bool));
+    bool *dirtyFlagCounts = (bool *)malloc(maxBufferSize * sizeof(bool));
 
     if (dirtyFlagCounts == NULL)
     {
@@ -371,7 +550,7 @@ bool *getDirtyFlags(BM_BufferPool *const bm)
 int *getFixCounts(BM_BufferPool *const bm)
 {
     RC return_code = RC_OK;
-    int *fixCounts = (int *)calloc(maxBufferSize, sizeof(int));
+    int *fixCounts = (int *)malloc(maxBufferSize * sizeof(int));
 
     if (fixCounts == NULL)
     {

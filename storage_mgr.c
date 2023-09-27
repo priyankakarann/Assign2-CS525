@@ -71,7 +71,7 @@ RC createPageFile(char *fileName)
         size_t block_size = sizeof(char);
 
         // Initializing a buffer that forms a memory block for setting the file
-        SM_PageHandle *smp = (SM_PageHandle *)calloc(block_size, num_blocks);
+        SM_PageHandle *smp = (SM_PageHandle *)calloc(num_blocks, block_size);
 
         // If the buffer fails to be created then return an error of it not initialized
         if (smp == NULL)
@@ -217,6 +217,7 @@ RC readBlock(int pageNum, SM_FileHandle *fHandle, SM_PageHandle memPage)
 {
     RC return_code = RC_OK;
     file = fHandle->mgmtInfo;
+    file = fopen(fileName, "r+");
     if (file == NULL)
     {
         return_code = RC_FILE_NOT_FOUND;
@@ -240,7 +241,7 @@ RC readBlock(int pageNum, SM_FileHandle *fHandle, SM_PageHandle memPage)
             printf("Mem Page: %s\n", memPage);
             printf("Elements Read: %zu\n", elements_read);
 
-            if (elements_read != count)
+            if (elements_read < count)
             {
                 RC_message = "ERROR OCCURRED WHILE READING THE FILE";
                 printError(*RC_message);
@@ -376,6 +377,7 @@ RC writeBlock(int pageNum, SM_FileHandle *fHandle, SM_PageHandle memPage)
     // Check whether the given pageNum is greater than 0 and less than the total number of pages
     if (pageNum >= 0 && pageNum < fHandle->totalNumPages)
     {
+        file = fopen(fileName, "w+");
         if (file == NULL)
         {
             return_code = RC_FILE_NOT_FOUND;
@@ -442,6 +444,7 @@ RC appendEmptyBlock(SM_FileHandle *fHandle)
     RC return_code = RC_OK;
     file = fHandle->mgmtInfo;
 
+    file = fopen(fileName, "w+");
     if (file == NULL)
     {
         return_code = RC_FILE_NOT_FOUND;
