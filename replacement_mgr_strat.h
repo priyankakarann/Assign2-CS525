@@ -5,10 +5,8 @@
 
 // Replacement Strategies
 
-extern void FIFO (BM_BufferPool *const bm, Frame *page, int rearIndex, int maxBufferSize, int noOfPagesWrite);
-extern void LRU (Frame* frames, int numPages, int pageNumber);
-extern void CLOCK (Frame* frames, int numFrames, int pageNum, int* clockHand);
-extern void LFU (BM_PageHandle *const page);
-extern void LRU_k (BM_PageHandle *const page);
+extern void FIFO (BM_BufferPool *const bm, Frame *frame, int noOfPagesRead, int noOfPagesWrite, int maxBufferSize);
+extern void LRU (BM_BufferPool *const bm, Frame *frame, int maxBufferSize, int noOfPagesWrite);
+extern void CLOCK (BM_BufferPool *const bm, Frame *frame, int clockPointer, int maxBufferSize, int noOfPagesWrite);
 
 #endif

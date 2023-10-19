@@ -46,9 +46,9 @@ main (void)
   testName = "";
 
   testCreatingAndReadingDummyPages();
-  // testReadPage();
-  // testFIFO();
-  // testLRU();
+  testReadPage();
+  testFIFO();
+  testLRU();
 }
 
 // create n pages with content "Page X" and read them back to check whether the content is right
@@ -63,8 +63,8 @@ testCreatingAndReadingDummyPages (void)
   createDummyPages(bm, 22);
   checkDummyPages(bm, 20);
 
-  // createDummyPages(bm, 10000);
-  // checkDummyPages(bm, 10000);
+  createDummyPages(bm, 10000);
+  checkDummyPages(bm, 10000);
 
   CHECK(destroyPageFile("testbuffer.bin"));
 
@@ -81,13 +81,13 @@ createDummyPages(BM_BufferPool *bm, int num)
 
   CHECK(initBufferPool(bm, "testbuffer.bin", 3, RS_FIFO, NULL));
   
-  // for (i = 0; i < num; i++)
-  //   {
-  //     CHECK(pinPage(bm, h, i));
-  //     sprintf(h->data, "%s-%i", "Page", h->pageNum);
-  //     CHECK(markDirty(bm, h));
-  //     CHECK(unpinPage(bm,h));
-  //   }
+  for (i = 0; i < num; i++)
+    {
+      CHECK(pinPage(bm, h, i));
+      sprintf(h->data, "%s-%i", "Page", h->pageNum);
+      CHECK(markDirty(bm, h));
+      CHECK(unpinPage(bm,h));
+    }
 
   CHECK(shutdownBufferPool(bm));
 
@@ -107,10 +107,10 @@ checkDummyPages(BM_BufferPool *bm, int num)
     {
       CHECK(pinPage(bm, h, i));
 
-      // sprintf(expected, "%s-%i", "Page", h->pageNum);
-      // ASSERT_EQUALS_STRING(expected, h->data, "reading back dummy page content");
+      sprintf(expected, "%s-%i", "Page", h->pageNum);
+      ASSERT_EQUALS_STRING(expected, h->data, "reading back dummy page content");
 
-      // CHECK(unpinPage(bm,h));
+      CHECK(unpinPage(bm,h));
     }
 
   CHECK(shutdownBufferPool(bm));
