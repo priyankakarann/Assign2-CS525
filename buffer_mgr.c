@@ -41,10 +41,12 @@ int noOfPagesWrite = 0;
 int hit = 0;
 int clockPointer = 0;
 
+
 extern RC initBufferPool(BM_BufferPool *const bm, const char *const pageFileName,
 						 const int numPages, ReplacementStrategy strategy,
 						 void *stratData)
 {
+	RC return_code = RC_OK;
 	if (bm != NULL)
 	{
 		bm->numPages = numPages;
@@ -54,108 +56,165 @@ extern RC initBufferPool(BM_BufferPool *const bm, const char *const pageFileName
 	}
 
 	Frame *frame = malloc(numPages * sizeof(Frame));
+	int i = 0;
 
-	for (int i = 0; i < maxBufferSize; i++)
+	while (i < maxBufferSize)
 	{
 		frame[i].bm_PageHandle.data = NULL;
 		frame[i].bm_PageHandle.pageNum = -1;
 		frame[i].dirtyCount = 0;
 		frame[i].fixCount = 0;
 		frame[i].hit = 0;
+
+		i += 1;
 	}
 
 	bm->mgmtData = frame;
 
-	return RC_OK;
+	return return_code;
 }
+
 
 extern RC shutdownBufferPool(BM_BufferPool *const bm)
 {
+	RC return_code = RC_OK;
 	Frame *frame = (Frame *)bm->mgmtData;
-	forceFlushPool(bm);
+	int didPagesWrite = forceFlushPool(bm);
+
+	if (didPagesWrite == RC_OK)
+	{
+		int i = 0;
+		while (i < maxBufferSize)
+		{
+			if (frame[i].fixCount != 0)
+			{
+				return RC_READ_NON_EXISTING_PAGE;
+			}
+			i += 1;
+		}
+		free(frame);
+	}
+	else
+	{
+		return_code = RC_WRITE_FAILED;
+		printError(return_code);
+	}
+
+	return return_code;
+}
+
+
+extern RC forceFlushPool(BM_BufferPool *const bm)
+{
+	RC return_code = RC_OK;
+	Frame *frame = (Frame *)bm->mgmtData;
 
 	int i = 0;
 	while (i < maxBufferSize)
 	{
-		if (frame[i].fixCount != 0)
+		if (frame[i].dirtyCount == 1 && frame[i].fixCount == 0)
 		{
-			return RC_READ_NON_EXISTING_PAGE;
+			SM_FileHandle sm_fileHandle;
+			openPageFile(bm->pageFile, &sm_fileHandle);
+
+			int didWrite = writeBlock(frame[i].bm_PageHandle.pageNum, &sm_fileHandle, frame[i].bm_PageHandle.data);
+
+			if (didWrite == RC_OK)
+			{
+				frame[i].dirtyCount = 0;
+				noOfPagesWrite += 1;
+			}
+			else
+			{
+				return_code = RC_WRITE_FAILED;
+				printError(return_code);
+
+				return return_code;
+			}
 		}
+
 		i += 1;
 	}
-	free(frame);
 
-	return RC_OK;
+	return return_code;
 }
 
-extern RC forceFlushPool(BM_BufferPool *const bm)
-{
-	Frame *frame = (Frame *)bm->mgmtData;
-
-	int i;
-	for (i = 0; i < maxBufferSize; i++)
-	{
-		if (frame[i].fixCount == 0 && frame[i].dirtyCount == 1)
-		{
-			SM_FileHandle fh;
-			openPageFile(bm->pageFile, &fh);
-			writeBlock(frame[i].bm_PageHandle.pageNum, &fh, frame[i].bm_PageHandle.data);
-			frame[i].dirtyCount = 0;
-			noOfPagesWrite += 1;
-		}
-	}
-	return RC_OK;
-}
 
 extern RC markDirty(BM_BufferPool *const bm, BM_PageHandle *const page)
 {
+	RC return_code = RC_OK;
 	Frame *frame = (Frame *)bm->mgmtData;
 
-	for (int i = 0; i < maxBufferSize; i++)
+	int i = 0;
+
+	while (i < maxBufferSize)
 	{
 		if (frame[i].bm_PageHandle.pageNum == page->pageNum)
 		{
 			frame[i].dirtyCount = 1;
 			break;
 		}
+
+		i += 1;
 	}
-	return RC_OK;
+
+	return return_code;
 }
+
 
 extern RC unpinPage(BM_BufferPool *const bm, BM_PageHandle *const page)
 {
+	RC return_code = RC_OK;
 	Frame *frame = (Frame *)bm->mgmtData;
 
-	for (int i = 0; i < maxBufferSize; i++)
+	int i = 0;
+
+	while (i < maxBufferSize)
 	{
 		if (frame[i].bm_PageHandle.pageNum == page->pageNum)
 		{
 			frame[i].fixCount -= 1;
 			break;
 		}
+
+		i += 1;
 	}
-	return RC_OK;
+
+	return return_code;
 }
 
 extern RC forcePage(BM_BufferPool *const bm, BM_PageHandle *const page)
 {
+	RC return_code = RC_OK;
 	Frame *frame = (Frame *)bm->mgmtData;
 
-	int i;
-	for (i = 0; i < maxBufferSize; i++)
+	int i = 0;
+	while (i < maxBufferSize)
 	{
 		if (frame[i].bm_PageHandle.pageNum == page->pageNum)
 		{
-			SM_FileHandle fh;
-			openPageFile(bm->pageFile, &fh);
-			writeBlock(frame[i].bm_PageHandle.pageNum, &fh, frame[i].bm_PageHandle.data);
+			SM_FileHandle sm_fileHandle;
+			openPageFile(bm->pageFile, &sm_fileHandle);
+			int didWrite = writeBlock(frame[i].bm_PageHandle.pageNum, &sm_fileHandle, frame[i].bm_PageHandle.data);
 
-			frame[i].dirtyCount = 0;
+			if (didWrite == RC_OK)
+			{
+				frame[i].dirtyCount = 0;
+				noOfPagesWrite += 1;
+			}
+			else
+			{
+				return_code = RC_WRITE_FAILED;
+				printError(return_code);
 
-			noOfPagesWrite++;
+				return return_code;
+			}
 		}
+
+		i += 1;
 	}
-	return RC_OK;
+
+	return return_code;
 }
 
 extern RC pinPage(BM_BufferPool *const bm, BM_PageHandle *const page,
@@ -284,8 +343,8 @@ PageNumber *getFrameContents(BM_BufferPool *const bm)
 	else
 	{
 		Frame *pageFrame = (Frame *)bm->mgmtData;
-
-		for (int i = 0; i < maxBufferSize; i++)
+		int i = 0;
+		while (i < maxBufferSize)
 		{
 			if ((pageFrame[i].bm_PageHandle).pageNum != -1)
 			{
@@ -295,6 +354,8 @@ PageNumber *getFrameContents(BM_BufferPool *const bm)
 			{
 				frameContents[i] = NO_PAGE;
 			}
+
+			i += 1;
 		}
 	}
 

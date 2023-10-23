@@ -8,13 +8,21 @@
 #include "storage_mgr.h"
 
 
+extern void initializeVariables(Frame *newFrame, Frame *frame, int index){
+	newFrame[index].bm_PageHandle.data = frame->bm_PageHandle.data;
+	newFrame[index].bm_PageHandle.pageNum = frame->bm_PageHandle.pageNum;
+	newFrame[index].dirtyCount = frame->dirtyCount;
+	newFrame[index].fixCount = frame->fixCount;
+}
+
 extern void FIFO(BM_BufferPool *const bm, Frame *frame, int noOfPagesRead, int noOfPagesWrite, int maxBufferSize)
 {
 	Frame *pageFrame = (Frame *) bm->mgmtData;
 	
 	int frontIndex = noOfPagesRead % maxBufferSize;
 
-	for(int i = 0; i < maxBufferSize; i++)
+	int i = 0;
+	while(i < maxBufferSize)
 	{
 		if(pageFrame[frontIndex].fixCount == 0)
 		{
@@ -24,44 +32,51 @@ extern void FIFO(BM_BufferPool *const bm, Frame *frame, int noOfPagesRead, int n
 				openPageFile(bm->pageFile, &fh);
 				writeBlock(pageFrame[frontIndex].bm_PageHandle.pageNum, &fh, pageFrame[frontIndex].bm_PageHandle.data);
 				
-				noOfPagesWrite++;
+				noOfPagesWrite += 1;
 			}
 			
-			pageFrame[frontIndex].bm_PageHandle.data = frame->bm_PageHandle.data;
-			pageFrame[frontIndex].bm_PageHandle.pageNum = frame->bm_PageHandle.pageNum;
-			pageFrame[frontIndex].dirtyCount = frame->dirtyCount;
-			pageFrame[frontIndex].fixCount = frame->fixCount;
+			initializeVariables(pageFrame, frame, frontIndex);
 			break;
 		}
 		else
 		{
-			frontIndex++;
-			frontIndex = (frontIndex % maxBufferSize == 0) ? 0 : frontIndex;
+			if (frontIndex % maxBufferSize == 0){
+				frontIndex = 0;
+			} else {
+				frontIndex += 1;
+			}
 		}
+
+		i += 1;
 	}
 }
 
 extern void LRU(BM_BufferPool *const bm, Frame *frame, int maxBufferSize, int noOfPagesWrite)
 {	
 	Frame *pageFrame = (Frame *) bm->mgmtData;
-	int i, leastHitIndex, leastHit;
+	int leastHitIndex = 0;
+	int leastHitRef = 0;
 
-	for(i = 0; i < maxBufferSize; i++)
+	int i = 0;
+
+	while(i < maxBufferSize)
 	{
 		if(pageFrame[i].fixCount == 0)
 		{
 			leastHitIndex = i;
-			leastHit = pageFrame[i].hit;
+			leastHitRef = pageFrame[i].hit;
 			break;
 		}
+
+		i += 1;
 	}	
 
-	for(i = leastHitIndex + 1; i < maxBufferSize; i++)
+	for(int i = leastHitIndex + 1; i < maxBufferSize; i++)
 	{
-		if(pageFrame[i].hit < leastHit)
+		if(pageFrame[i].hit < leastHitRef)
 		{
 			leastHitIndex = i;
-			leastHit = pageFrame[i].hit;
+			leastHitRef = pageFrame[i].hit;
 		}
 	}
 
@@ -71,23 +86,21 @@ extern void LRU(BM_BufferPool *const bm, Frame *frame, int maxBufferSize, int no
 		openPageFile(bm->pageFile, &fh);
 		writeBlock(pageFrame[leastHitIndex].bm_PageHandle.pageNum, &fh, pageFrame[leastHitIndex].bm_PageHandle.data);
 		
-		noOfPagesWrite++;
+		noOfPagesWrite += 1;
 	}
 	
-	pageFrame[leastHitIndex].bm_PageHandle.data = frame->bm_PageHandle.data;
-	pageFrame[leastHitIndex].bm_PageHandle.pageNum = frame->bm_PageHandle.pageNum;
-	pageFrame[leastHitIndex].dirtyCount = frame->dirtyCount;
-	pageFrame[leastHitIndex].fixCount = frame->fixCount;
-	pageFrame[leastHitIndex].hit = frame->hit;
+	initializeVariables(pageFrame, frame, leastHitIndex);
 }
 
 
-extern void CLOCK(BM_BufferPool *const bm, Frame *frame, int clockPointer, int maxBufferSize, int noOfPagesWrite)
+extern void CLOCK(BM_BufferPool *const bm, Frame *page, int clockPointer, int maxBufferSize, int noOfPagesWrite)
 {	
 	Frame *pageFrame = (Frame *) bm->mgmtData;
 	while(true)
 	{
-		clockPointer = (clockPointer % maxBufferSize == 0) ? 0 : clockPointer;
+		if (clockPointer % maxBufferSize == 0){
+			clockPointer = 0;
+		}
 
 		if(pageFrame[clockPointer].hit == 0)
 		{
@@ -97,20 +110,18 @@ extern void CLOCK(BM_BufferPool *const bm, Frame *frame, int clockPointer, int m
 				openPageFile(bm->pageFile, &fh);
 				writeBlock(pageFrame[clockPointer].bm_PageHandle.pageNum, &fh, pageFrame[clockPointer].bm_PageHandle.data);
 				
-				noOfPagesWrite++;
+				noOfPagesWrite += 1;
 			}
 			
-			pageFrame[clockPointer].bm_PageHandle.data = frame->bm_PageHandle.data;
-			pageFrame[clockPointer].bm_PageHandle.pageNum = frame->bm_PageHandle.pageNum;
-			pageFrame[clockPointer].dirtyCount = frame->dirtyCount;
-			pageFrame[clockPointer].fixCount = frame->fixCount;
-			pageFrame[clockPointer].hit = frame->hit;
-			clockPointer++;
+			initializeVariables(pageFrame, page, clockPointer);
+
+			clockPointer += 1;
 			break;	
 		}
 		else
 		{
-			pageFrame[clockPointer++].hit = 0;		
+			clockPointer += 1;
+			pageFrame[clockPointer].hit = 0;		
 		}
 	}
 }
