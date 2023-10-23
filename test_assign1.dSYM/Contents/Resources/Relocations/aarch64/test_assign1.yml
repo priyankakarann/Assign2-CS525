@@ -46,20 +46,20 @@ relocations:
   - { offsetInCU: 0x375, offset: 0x183C, size: 0x8, addend: 0x0, symName: _unpinPage, symObjAddr: 0x430, symBinAddr: 0x100005FCC, symSize: 0xB0 }
   - { offsetInCU: 0x3D5, offset: 0x189C, size: 0x8, addend: 0x0, symName: _forcePage, symObjAddr: 0x4E0, symBinAddr: 0x10000607C, symSize: 0x150 }
   - { offsetInCU: 0x45F, offset: 0x1926, size: 0x8, addend: 0x0, symName: _pinPage, symObjAddr: 0x630, symBinAddr: 0x1000061CC, symSize: 0x524 }
-  - { offsetInCU: 0x553, offset: 0x1A1A, size: 0x8, addend: 0x0, symName: _getFrameContents, symObjAddr: 0xB54, symBinAddr: 0x1000066F0, symSize: 0x120 }
-  - { offsetInCU: 0x5C7, offset: 0x1A8E, size: 0x8, addend: 0x0, symName: _getDirtyFlags, symObjAddr: 0xC74, symBinAddr: 0x100006810, symSize: 0x110 }
-  - { offsetInCU: 0x649, offset: 0x1B10, size: 0x8, addend: 0x0, symName: _getFixCounts, symObjAddr: 0xD84, symBinAddr: 0x100006920, symSize: 0x124 }
-  - { offsetInCU: 0x6CB, offset: 0x1B92, size: 0x8, addend: 0x0, symName: _getNumReadIO, symObjAddr: 0xEA8, symBinAddr: 0x100006A44, symSize: 0x84 }
-  - { offsetInCU: 0x704, offset: 0x1BCB, size: 0x8, addend: 0x0, symName: _getNumWriteIO, symObjAddr: 0xF2C, symBinAddr: 0x100006AC8, symSize: 0x80 }
-  - { offsetInCU: 0x26, offset: 0x1CF5, size: 0x8, addend: 0x0, symName: _printPoolContent, symObjAddr: 0x0, symBinAddr: 0x100006B48, symSize: 0x150 }
-  - { offsetInCU: 0x78, offset: 0x1D47, size: 0x8, addend: 0x0, symName: _printPoolContent, symObjAddr: 0x0, symBinAddr: 0x100006B48, symSize: 0x150 }
-  - { offsetInCU: 0xD4, offset: 0x1DA3, size: 0x8, addend: 0x0, symName: _printStrat, symObjAddr: 0x150, symBinAddr: 0x100006C98, symSize: 0xC8 }
-  - { offsetInCU: 0xF8, offset: 0x1DC7, size: 0x8, addend: 0x0, symName: _sprintPoolContent, symObjAddr: 0x22C, symBinAddr: 0x100006D74, symSize: 0x15C }
-  - { offsetInCU: 0x174, offset: 0x1E43, size: 0x8, addend: 0x0, symName: _printPageContent, symObjAddr: 0x388, symBinAddr: 0x100006ED0, symSize: 0x108 }
-  - { offsetInCU: 0x1A6, offset: 0x1E75, size: 0x8, addend: 0x0, symName: _sprintPageContent, symObjAddr: 0x490, symBinAddr: 0x100006FD8, symSize: 0x164 }
-  - { offsetInCU: 0x26, offset: 0x1FB0, size: 0x8, addend: 0x0, symName: _initializeVariables, symObjAddr: 0x0, symBinAddr: 0x10000713C, symSize: 0x88 }
-  - { offsetInCU: 0x10F, offset: 0x2099, size: 0x8, addend: 0x0, symName: _initializeVariables, symObjAddr: 0x0, symBinAddr: 0x10000713C, symSize: 0x88 }
-  - { offsetInCU: 0x14F, offset: 0x20D9, size: 0x8, addend: 0x0, symName: _FIFO, symObjAddr: 0x88, symBinAddr: 0x1000071C4, symSize: 0x178 }
-  - { offsetInCU: 0x1F1, offset: 0x217B, size: 0x8, addend: 0x0, symName: _LRU, symObjAddr: 0x200, symBinAddr: 0x10000733C, symSize: 0x1D8 }
-  - { offsetInCU: 0x2AF, offset: 0x2239, size: 0x8, addend: 0x0, symName: _CLOCK, symObjAddr: 0x3D8, symBinAddr: 0x100007514, symSize: 0x158 }
+  - { offsetInCU: 0x555, offset: 0x1A1C, size: 0x8, addend: 0x0, symName: _getFrameContents, symObjAddr: 0xB54, symBinAddr: 0x1000066F0, symSize: 0x120 }
+  - { offsetInCU: 0x5C9, offset: 0x1A90, size: 0x8, addend: 0x0, symName: _getDirtyFlags, symObjAddr: 0xC74, symBinAddr: 0x100006810, symSize: 0x110 }
+  - { offsetInCU: 0x64B, offset: 0x1B12, size: 0x8, addend: 0x0, symName: _getFixCounts, symObjAddr: 0xD84, symBinAddr: 0x100006920, symSize: 0x124 }
+  - { offsetInCU: 0x6CD, offset: 0x1B94, size: 0x8, addend: 0x0, symName: _getNumReadIO, symObjAddr: 0xEA8, symBinAddr: 0x100006A44, symSize: 0x84 }
+  - { offsetInCU: 0x706, offset: 0x1BCD, size: 0x8, addend: 0x0, symName: _getNumWriteIO, symObjAddr: 0xF2C, symBinAddr: 0x100006AC8, symSize: 0x80 }
+  - { offsetInCU: 0x26, offset: 0x1CF7, size: 0x8, addend: 0x0, symName: _printPoolContent, symObjAddr: 0x0, symBinAddr: 0x100006B48, symSize: 0x150 }
+  - { offsetInCU: 0x78, offset: 0x1D49, size: 0x8, addend: 0x0, symName: _printPoolContent, symObjAddr: 0x0, symBinAddr: 0x100006B48, symSize: 0x150 }
+  - { offsetInCU: 0xD4, offset: 0x1DA5, size: 0x8, addend: 0x0, symName: _printStrat, symObjAddr: 0x150, symBinAddr: 0x100006C98, symSize: 0xC8 }
+  - { offsetInCU: 0xF8, offset: 0x1DC9, size: 0x8, addend: 0x0, symName: _sprintPoolContent, symObjAddr: 0x22C, symBinAddr: 0x100006D74, symSize: 0x15C }
+  - { offsetInCU: 0x174, offset: 0x1E45, size: 0x8, addend: 0x0, symName: _printPageContent, symObjAddr: 0x388, symBinAddr: 0x100006ED0, symSize: 0x108 }
+  - { offsetInCU: 0x1A6, offset: 0x1E77, size: 0x8, addend: 0x0, symName: _sprintPageContent, symObjAddr: 0x490, symBinAddr: 0x100006FD8, symSize: 0x164 }
+  - { offsetInCU: 0x26, offset: 0x1FB2, size: 0x8, addend: 0x0, symName: _initializeVariables, symObjAddr: 0x0, symBinAddr: 0x10000713C, symSize: 0x88 }
+  - { offsetInCU: 0x10F, offset: 0x209B, size: 0x8, addend: 0x0, symName: _initializeVariables, symObjAddr: 0x0, symBinAddr: 0x10000713C, symSize: 0x88 }
+  - { offsetInCU: 0x14F, offset: 0x20DB, size: 0x8, addend: 0x0, symName: _FIFO, symObjAddr: 0x88, symBinAddr: 0x1000071C4, symSize: 0x178 }
+  - { offsetInCU: 0x1F1, offset: 0x217D, size: 0x8, addend: 0x0, symName: _LRU, symObjAddr: 0x200, symBinAddr: 0x10000733C, symSize: 0x1D8 }
+  - { offsetInCU: 0x2AF, offset: 0x223B, size: 0x8, addend: 0x0, symName: _CLOCK, symObjAddr: 0x3D8, symBinAddr: 0x100007514, symSize: 0x158 }
 ...
